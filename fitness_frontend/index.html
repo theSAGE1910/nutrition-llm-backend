@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nutrition Tracker and Fitness Coach</title>
+    <style>
+        body { font-family: sans-serif; background-color: #1e1e1e; color: #ffffff; padding: 20px; }
+        .card { background-color: #2d2d2d; padding: 20px; border-radius: 8px; max-width: 400px; margin-top: 20px; }
+        button { background-color: #4CAF50; color: white; border: none; padding: 10px 15px; cursor: pointer; border-radius: 4px; font-weight: bold; }
+        button:hover { background-color: #45a049; }
+        button:disabled { background-color: #555; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+
+    <h1>🏋️‍♂️ Hypertrophy Tracker</h1>
+
+    <div class="card">
+        <h3>Log a Meal</h3>
+        <form id="meal-form">
+            <input type="text" id="meal-name" placeholder="Meal Name (e.g., Chicken Rice)" required style="margin-bottom: 10px; width: 90%; padding: 8px;"><br>
+            <input type="number" id="protein" placeholder="Protein (g)" required style="margin-bottom: 10px; width: 90%; padding: 8px;"><br>
+            <input type="number" id="calories" placeholder="Calories" required style="margin-bottom: 10px; width: 90%; padding: 8px;"><br>
+            <button type="submit" id="submit-btn">Save to Database</button>
+        </form>
+        <p id="log-status" style="font-size: 0.9em; margin-top: 10px;"></p>
+    </div>
+    
+    <button id="fetch-btn">Ask AI Coach for Assessment</button>
+
+    <div class="card">
+        <h3>Today's Macros:</h3>
+        <p id="macro-display">Click the button to load data...</p>
+        <hr>
+        <h3>Coach says:</h3>
+        <p id="coach-display">Waiting for AI...</p>
+    </div>
+
+</body>
+<script>
+        const button = document.getElementById('fetch-btn');
+        const macroDisplay = document.getElementById('macro-display');
+        const coachDisplay = document.getElementById('coach-display');
+
+        const mealForm = document.getElementById('meal-form');
+        const logStatus = document.getElementById('log-status');
+        const submitBtn = document.getElementById('submit-btn');
+
+        button.addEventListener('click', async () => {
+            
+            button.innerText = "Consulting the Coach...";
+            button.disabled = true;
+
+            try {
+                const response = await fetch('https://YOUR-RENDER-URL.onrender.com/coach/assessment/');
+                
+                if (!response.ok) {
+                    throw new Error("API request failed!");
+                }
+
+                const data = await response.json();
+
+                if (data.message) {
+                     coachDisplay.innerText = data.message; // Handles the "no meals logged" state
+                } else {
+                     macroDisplay.innerText = `Protein: ${data.daily_stats.protein}g | Calories: ${data.daily_stats.calories} kcal`;
+                     coachDisplay.innerText = data.coach_feedback;
+                }
+
+            } catch (error) {
+                coachDisplay.innerText = "Error connecting to the server. Is it awake?";
+                console.error(error);
+            } finally {
+                button.innerText = "Ask AI Coach for Assessment";
+                button.disabled = false;
+            }
+        });
+
+        button.addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            submitBtn.innerText = "Saving...";
+            submitBtn.disabled = true;
+            logStatus.innerText = "";
+
+            const payload = {
+                meal_name: document.getElementById('meal-name').value,
+                protein_grams: parseFloat(document.getElementById('protein').value),
+                calories: parseInt(document.getElementById('calories').value)
+            };
+
+            try {
+                const response = await fetch('https://YOUR-RENDER-URL.onrender.com/meals/log-meal/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.ok) {
+                    logStatus.innerText = "✅ Meal successfully saved to the cloud!";
+                    logStatus.style.color = "#4CAF50";
+                    mealForm.reset();
+                } else if (response.status === 422) {
+                    logStatus.innerText = "❌ Error: The AI Bouncer rejected your data.";
+                    logStatus.style.color = "#ff4c4c";
+                } else {
+                    throw new Error("Server error");
+                }
+            } catch (error) {
+                logStatus.innerText = "❌ Network error. Check console.";
+                logStatus.style.color = "#ff4c4c";
+                console.error(error);
+            } finally {
+                submitBtn.innerText = "Save to Database";
+                submitBtn.disabled = false;
+            }
+
+        })
+    </script>
+</html>
